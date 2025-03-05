@@ -4,6 +4,7 @@
 // Configuration
 const MAX_PAGES = 20; // Maximum number of pages to check
 const PAGE_SIZE = 50; // Items per page
+const DEBUG = false; // Set to true for additional debug information
 
 // Storage for results
 const withdrawnItems = [];
@@ -23,26 +24,46 @@ function formatDateTime(dateString) {
   });
 }
 
+// Function to get current auth token from localStorage
+function getAuthToken() {
+  try {
+    // Get token from localStorage
+    const token = localStorage.getItem('accessToken');
+    
+    if (!token) {
+      throw new Error('Auth token not found in localStorage.');
+    }
+    
+    if (DEBUG) {
+      console.debug("Found auth token:", token.substring(0, 10) + '...');
+    }
+    
+    return token;
+  } catch (error) {
+    console.error('Error retrieving auth token:', error);
+    return null;
+  }
+}
+
 // Function to fetch a specific page
 async function fetchPage(page) {
   console.log(`Fetching page ${page}...`);
   
   try {
+    // Get the current auth token
+    const authToken = getAuthToken();
+    
+    if (!authToken) {
+      throw new Error('Cannot fetch data without auth token. Please ensure you are logged in to whale.io');
+    }
+    
     const response = await fetch(`https://api-ms.crashgame247.io/lootbox/unboxing-history?page=${page}&pageSize=${PAGE_SIZE}`, {
       "headers": {
         "accept": "application/json, text/plain, */*",
         "accept-language": "en-US,en;q=0.9",
-        "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxNDg1ODAzNSIsImNoYW5uZWwiOiJ1c2VyOjE0ODU4MDM1IiwiaW5mbyI6eyJoaXN0b3J5X3NpemUiOjEwMCwiaGlzdG9yeV9saWZldGltZSI6ODY0MDB9LCJpYXQiOjE3NDExODcxODAsImV4cCI6MTc0MTI3MzU4MH0.LENw7uj6Orl-3ngFaup1nN9kYlR4beDFraLr2jFzEuE",
+        "authorization": `Bearer ${authToken}`,
         "cache-control": "no-cache",
         "pragma": "no-cache",
-        "priority": "u=1, i",
-        "sec-ch-ua": "\"Not(A:Brand\";v=\"99\", \"Google Chrome\";v=\"133\", \"Chromium\";v=\"133\"",
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "\"Windows\"",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "cross-site",
-        "sec-fetch-storage-access": "active",
         "x-device": "WEB",
         "x-lang": "en",
         "x-platform": "unknown"
@@ -107,6 +128,20 @@ function processItems(items) {
 // Main function to run the check
 async function checkAllLootboxes() {
   console.log("🔍 Starting Whale.io Lootbox Checker...");
+  
+  // Check if we're on the right site
+  if (!window.location.hostname.includes('whale.io')) {
+    console.warn("⚠️ You don't appear to be on whale.io. This script is designed to work on whale.io site.");
+    console.warn("If you are on whale.io but seeing this message, you can continue, but results may not be accurate.");
+  }
+  
+  // Check if we have an auth token
+  const authToken = getAuthToken();
+  if (!authToken) {
+    console.error("❌ Authentication token not found. Please make sure you are logged in to whale.io");
+    return { items: [], totalValueUsd: 0, currencyTotals: {} };
+  }
+  
   console.log(`Will check up to ${MAX_PAGES} pages with ${PAGE_SIZE} items per page`);
   
   let currentPage = 1;
